@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ title }} · Ledgerline</title>
+  <link rel="stylesheet" href="/static/app.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%232f6fed'/><text y='72' x='50' font-size='62' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='bold'>L</text></svg>">
+</head>
+<body>
+<header>
+  <a class="brand" href="/">
+    <span class="mark">L</span>
+    <span><b>Ledgerline</b><span>books, CA-ready</span></span>
+  </a>
+  <nav>
+    <a href="/" class="{{ 'on' if request.url.path == '/' or request.url.path.startswith('/businesses') }}">Clients</a>
+    <a href="/analytics" class="{{ 'on' if request.url.path.startswith('/analytics') }}">Analytics</a>
+    <a href="/upload" class="{{ 'on' if request.url.path.startswith('/upload') }}">Upload</a>
+    <a href="/review" class="{{ 'on' if request.url.path.startswith('/review') }}">Review</a>
+    <a href="/payments" class="{{ 'on' if request.url.path.startswith('/payments') }}">Payments</a>
+    <a href="/documents" class="{{ 'on' if request.url.path.startswith('/documents') }}">Files</a>
+  </nav>
+</header>
+<main>
+  {% block content %}{% endblock %}
+</main>
+<footer>
+  Every figure here was read from a document by the pipeline and can be traced back to it.
+  Corrections are recorded against the original reading.
+</footer>
+</body>
+</html>

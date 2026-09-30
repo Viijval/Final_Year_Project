@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Payments</h1>
+<p class="sub">Bank debits and the invoice each one appears to settle.</p>
+<div class="cards" style="margin-bottom:20px">
+  <div class="card"><div class="l">Matched</div><div class="n">{{ summary.matched }}</div></div>
+  <div class="card"><div class="l">Low confidence</div><div class="n">{{ summary.needs_review }}</div></div>
+  <div class="card"><div class="l">Unmatched</div><div class="n">{{ summary.unmatched }}</div></div>
+  <div class="card"><div class="l">Not a bill payment</div><div class="n">{{ summary.not_payable }}</div></div>
+</div>
+<table>
+  <tr><th>Date</th><th class="num">Amount</th><th>Narration</th><th>Matched invoice</th><th class="num">Score</th></tr>
+  {% for p in payments %}
+  <tr>
+    <td>{{ p.txn_date }}</td>
+    <td class="num">{{ p.amount|inr }}</td>
+    <td class="muted">{{ p.narration|short(52) }}</td>
+    <td>
+      {% if p.matched_invoice_id %}<a href="/invoices/{{ p.matched_invoice_id }}">{{ p.matched_invoice_id }}</a>
+      {% elif p.kind != "invoice_payment" %}<span class="tag">{{ p.kind|replace("_"," ") }}</span>
+      {% else %}<span class="tag warn">unmatched</span>{% endif %}
+    </td>
+    <td class="num">{{ (p.match_score or 0)|round(2) if p.match_score else "-" }}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% endblock %}

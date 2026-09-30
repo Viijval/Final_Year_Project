@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Source files</h1>
+    <p class="sub">
+      Every figure in Ledgerline was read off one of these. {{ total }} documents held,
+      {{ uploaded }} of them uploaded here. Open one to see which part of the page each value came from.
+    </p>
+  </div>
+  <form method="get" action="/documents" style="min-width:230px">
+    <select name="business_id" onchange="this.form.submit()">
+      <option value="">All clients</option>
+      {% for b in businesses %}
+      <option value="{{ b.id }}" {{ 'selected' if business and b.id == business.id }}>{{ b.name }}</option>
+      {% endfor %}
+    </select>
+  </form>
+</div>
+
+<div class="files">
+  {% for doc in documents %}
+  <a class="file" href="/invoices/{{ doc.id }}">
+    <span class="thumb"><img loading="lazy" src="/{{ doc.document_path }}" alt="source document"></span>
+    <span class="meta">
+      <b>{{ doc.invoice_number or doc.id }}</b>
+      <span class="muted">{{ doc.supplier_name|short(26) if doc.supplier_name else "supplier not read" }}</span>
+      <span class="line">
+        <span class="muted">{{ doc.invoice_date or "no date" }}</span>
+        <span class="amt">{{ ("₹" ~ doc.invoice_total|inr) if doc.invoice_total is not none else "—" }}</span>
+      </span>
+      <span class="line">
+        {% if doc.document_path.startswith("uploads/") %}<span class="tag">uploaded</span>{% endif %}
+        {% if doc.status == "needs_review" %}<span class="tag warn">review</span>
+        {% else %}<span class="tag good">cleared</span>{% endif %}
+        <span class="muted">{{ (doc.extraction_confidence * 100)|round(0)|int }}% read</span>
+      </span>
+    </span>
+  </a>
+  {% else %}
+  <div class="empty">No documents yet. <a href="/upload">Upload one</a>.</div>
+  {% endfor %}
+</div>
+
+{% if pages > 1 %}
+<div class="pager">
+  {% if page > 1 %}<a href="/documents?page={{ page - 1 }}{{ '&business_id=' ~ business.id if business }}">← previous</a>{% endif %}
+  <span class="muted">page {{ page }} of {{ pages }}</span>
+  {% if page < pages %}<a href="/documents?page={{ page + 1 }}{{ '&business_id=' ~ business.id if business }}">next →</a>{% endif %}
+</div>
+{% endif %}
+
+<style>
+.files { display: grid; grid-template-columns: repeat(auto-fill, minmax(215px, 1fr)); gap: 16px; }
+.file {
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+  overflow: hidden; text-decoration: none; color: inherit; box-shadow: var(--shadow);
+  display: flex; flex-direction: column; transition: transform .12s, box-shadow .12s;
+}
+.file:hover { transform: translateY(-2px); box-shadow: 0 8px 22px rgba(20,32,58,.12); }
+.thumb { display: block; height: 168px; overflow: hidden; background: #eef1f7; }
+.thumb img { width: 100%; height: 100%; object-fit: cover; object-position: top center; display: block; }
+.meta { padding: 11px 13px 13px; display: flex; flex-direction: column; gap: 3px; font-size: 13px; }
+.meta b { font-size: 13.5px; color: var(--navy); }
+.meta .line { display: flex; align-items: center; gap: 6px; justify-content: space-between; margin-top: 3px; }
+.meta .amt { font-variant-numeric: tabular-nums; font-weight: 600; }
+.pager { display: flex; gap: 16px; align-items: center; justify-content: center; margin-top: 24px; }
+</style>
+{% endblock %}

@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Error propagation in a financial document pipeline</title>
+<style>
+:root{--navy:#1a2a4a;--accent:#2f6fed;--grey:#5b6472;--line:#dde3ee;--bg:#f6f8fc;--bad:#c33;--good:#2e7d4f}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:#1d2430;font:16px/1.65 "Segoe UI",system-ui,sans-serif}
+header{background:var(--navy);color:#fff;padding:40px 24px 34px}
+header div{max-width:960px;margin:0 auto}
+h1{margin:0 0 8px;font-size:30px;line-height:1.25}
+header p{margin:0;color:#c9d6f0;font-size:17px;max-width:640px}
+main{max-width:960px;margin:0 auto;padding:30px 24px 70px}
+h2{font-size:21px;color:var(--navy);margin:38px 0 10px}
+h3{font-size:15px;color:var(--grey);margin:24px 0 8px;text-transform:uppercase;letter-spacing:.05em}
+p{margin:0 0 14px}
+.lead{font-size:17px}
+.panel{background:#fff;border:1px solid var(--line);border-radius:12px;padding:20px 22px;margin:16px 0}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin:18px 0}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+.card .n{font-size:26px;font-weight:700;color:var(--navy)}
+.card .n.bad{color:var(--bad)} .card .n.good{color:var(--good)}
+.card .l{font-size:12px;color:var(--grey);text-transform:uppercase;letter-spacing:.05em}
+table{width:100%;border-collapse:collapse;background:#fff;font-size:14px;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line)}
+th{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--grey);background:#f3f6fc}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+tr:last-child td{border-bottom:0}
+figure{margin:18px 0}
+figure img{width:100%;border:1px solid var(--line);border-radius:10px;background:#fff}
+figcaption{font-size:13px;color:var(--grey);margin-top:8px}
+.strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.strip img{width:100%;border:1px solid var(--line);border-radius:8px;background:#fff}
+.strip span{display:block;font-size:12px;color:var(--grey);margin-top:5px}
+code{background:#eef2fa;padding:2px 6px;border-radius:5px;font-size:13px}
+footer{border-top:1px solid var(--line);margin-top:44px;padding-top:18px;color:var(--grey);font-size:13px}
+a{color:var(--accent)}
+</style></head>
+<body>
+<header><div>
+<h1>How far does an extraction error travel?</h1>
+<p>A four-stage pipeline over GST invoices, measured stage by stage as upstream errors are injected
+at a controlled rate.</p>
+</div></header>
+<main>
+<p class="lead">Existing work evaluates each stage on clean input. In production every stage reads
+whatever the one before it produced. This measures the difference.</p>
+
+<div class="panel"><strong>The finding.</strong> Errors do not spread evenly. Categorisation and
+reconciliation absorb upstream error. Anomaly detection amplifies it: its recall rises while
+precision collapses, because a misread digit looks exactly like a genuine inconsistency. At 30%
+upstream error the rule detector flags two thirds of all invoices, and the review queue stops being
+useful.</div>
+
+<div class="cards"><div class="card"><div class="l">2 · Categorisation</div><div class="n good">0.16 – 0.22</div><div class="l">absorbs</div></div><div class="card"><div class="l">3 · Reconciliation</div><div class="n good">0.60 – 0.65</div><div class="l">absorbs</div></div><div class="card"><div class="l">4 · Anomaly detection</div><div class="n bad">2.55 – 8.38</div><div class="l">amplifies</div></div></div><h3>Headline metric by injected error rate</h3><table><tr><th class="">stage</th><th class="">method</th><th class="num">0%</th><th class="num">5%</th><th class="num">10%</th><th class="num">20%</th><th class="num">30%</th></tr><tr><td class="">1_extraction</td><td class="">injected</td><td class="num">1.0</td><td class="num">0.955</td><td class="num">0.909</td><td class="num">0.816</td><td class="num">0.731</td></tr><tr><td class="">2_categorisation</td><td class="">char_lr</td><td class="num">0.993</td><td class="num">0.982</td><td class="num">0.974</td><td class="num">0.965</td><td class="num">0.949</td></tr><tr><td class="">2_categorisation</td><td class="">hybrid_lr</td><td class="num">0.995</td><td class="num">0.984</td><td class="num">0.973</td><td class="num">0.963</td><td class="num">0.947</td></tr><tr><td class="">2_categorisation</td><td class="">hybrid_rf</td><td class="num">0.97</td><td class="num">0.959</td><td class="num">0.943</td><td class="num">0.926</td><td class="num">0.91</td></tr><tr><td class="">2_categorisation</td><td class="">word_lr</td><td class="num">0.995</td><td class="num">0.984</td><td class="num">0.974</td><td class="num">0.96</td><td class="num">0.94</td></tr><tr><td class="">3_reconciliation</td><td class="">m1_exact</td><td class="num">0.646</td><td class="num">0.623</td><td class="num">0.608</td><td class="num">0.549</td><td class="num">0.519</td></tr><tr><td class="">3_reconciliation</td><td class="">m2_fuzzy</td><td class="num">0.745</td><td class="num">0.719</td><td class="num">0.703</td><td class="num">0.649</td><td class="num">0.604</td></tr><tr><td class="">3_reconciliation</td><td class="">m3_forest</td><td class="num">0.961</td><td class="num">0.929</td><td class="num">0.902</td><td class="num">0.832</td><td class="num">0.772</td></tr><tr><td class="">3_reconciliation</td><td class="">m3_learned</td><td class="num">0.918</td><td class="num">0.897</td><td class="num">0.871</td><td class="num">0.826</td><td class="num">0.785</td></tr><tr><td class="">3_reconciliation</td><td class="">m4_assignment</td><td class="num">0.911</td><td class="num">0.888</td><td class="num">0.871</td><td class="num">0.812</td><td class="num">0.777</td></tr><tr><td class="">4_anomaly</td><td class="">a1_rules</td><td class="num">0.743</td><td class="num">0.189</td><td class="num">0.122</td><td class="num">0.092</td><td class="num">0.081</td></tr><tr><td class="">4_anomaly</td><td class="">a2_statistical</td><td class="num">0.24</td><td class="num">0.226</td><td class="num">0.242</td><td class="num">0.163</td><td class="num">0.076</td></tr><tr><td class="">4_anomaly</td><td class="">a3_isolation_forest</td><td class="num">0.884</td><td class="num">0.465</td><td class="num">0.302</td><td class="num">0.163</td><td class="num">0.119</td></tr><tr><td class="">4_anomaly</td><td class="">a3_lof</td><td class="num">0.167</td><td class="num">0.031</td><td class="num">0.061</td><td class="num">0.045</td><td class="num">0.026</td></tr></table><h3>Extraction (E1)</h3><p>Field accuracy against how badly the scan was degraded.</p><table><tr><th class="">severity_bucket</th><th class="num">documents</th><th class="num">accuracy</th><th class="num">precision</th><th class="num">missing_rate</th></tr><tr><td class="">[0.0, 0.2)</td><td class="num">770</td><td class="num">0.819</td><td class="num">0.899</td><td class="num">0.089</td></tr><tr><td class="">[0.2, 0.4)</td><td class="num">1005</td><td class="num">0.778</td><td class="num">0.88</td><td class="num">0.116</td></tr><tr><td class="">[0.4, 0.6)</td><td class="num">986</td><td class="num">0.668</td><td class="num">0.822</td><td class="num">0.188</td></tr><tr><td class="">[0.6, 0.8)</td><td class="num">987</td><td class="num">0.493</td><td class="num">0.742</td><td class="num">0.336</td></tr><tr><td class="">[0.8, 1.01)</td><td class="num">246</td><td class="num">0.384</td><td class="num">0.673</td><td class="num">0.429</td></tr></table><h3>Categorisation (E2)</h3><p>Keyword rules against text models, on clean fields and on real OCR output.</p><table><tr><th class="">model</th><th class="num">extracted_ocr</th><th class="num">extracted_text</th><th class="num">truth</th></tr><tr><td class="">char_lr</td><td class="num">0.856</td><td class="num">0.993</td><td class="num">0.993</td></tr><tr><td class="">hybrid_lr</td><td class="num">0.854</td><td class="num">0.995</td><td class="num">0.993</td></tr><tr><td class="">hybrid_rf</td><td class="num">0.821</td><td class="num">0.97</td><td class="num">0.97</td></tr><tr><td class="">rules_c1</td><td class="num">0.631</td><td class="num">0.798</td><td class="num">0.8</td></tr><tr><td class="">word_lr</td><td class="num">0.856</td><td class="num">0.995</td><td class="num">0.995</td></tr></table><h3>Reconciliation (E3)</h3><p>Exact, fuzzy, learned and globally assigned matching.</p><table><tr><th class="">matcher</th><th class="num">extracted_ocr</th><th class="num">extracted_text</th><th class="num">truth</th></tr><tr><td class="">m1_exact</td><td class="num">0.486</td><td class="num">0.646</td><td class="num">0.646</td></tr><tr><td class="">m2_fuzzy</td><td class="num">0.568</td><td class="num">0.745</td><td class="num">0.745</td></tr><tr><td class="">m3_forest</td><td class="num">0.742</td><td class="num">0.961</td><td class="num">0.961</td></tr><tr><td class="">m3_learned</td><td class="num">0.207</td><td class="num">0.918</td><td class="num">0.918</td></tr><tr><td class="">m4_assignment</td><td class="num">0.677</td><td class="num">0.911</td><td class="num">0.911</td></tr></table><h3>Anomaly detection (E4)</h3><p>Rules, per-supplier statistics and unsupervised models.</p><table><tr><th class="">detector</th><th class="num">extracted_ocr</th><th class="num">extracted_text</th><th class="num">truth</th></tr><tr><td class="">a1_rules</td><td class="num">0.113</td><td class="num">0.667</td><td class="num">0.743</td></tr><tr><td class="">a2_statistical</td><td class="num">0.077</td><td class="num">0.24</td><td class="num">0.24</td></tr><tr><td class="">a3_isolation_forest</td><td class="num">0.243</td><td class="num">0.884</td><td class="num">0.884</td></tr><tr><td class="">a3_lof</td><td class="num">0.087</td><td class="num">0.167</td><td class="num">0.167</td></tr></table>
+
+<h2>Figures</h2>
+<figure><img src="assets/degradation_curves.png" alt="degradation_curves.png"><figcaption>degradation curves</figcaption></figure><figure><img src="assets/amplification.png" alt="amplification.png"><figcaption>amplification</figcaption></figure><figure><img src="assets/anomaly_mechanism.png" alt="anomaly_mechanism.png"><figcaption>anomaly mechanism</figcaption></figure>
+
+<h2>The documents</h2>
+<p>Every invoice is rendered in one of four layouts, then degraded to look scanned or photographed.</p>
+<div class="strip"><div><img src="assets/B029-I00116.jpg" alt="rendered invoice"><span>classic · severity 0.05</span></div><div><img src="assets/B004-I00068.jpg" alt="rendered invoice"><span>modern · severity 0.45</span></div><div><img src="assets/B005-I00072.jpg" alt="rendered invoice"><span>compact · severity 0.85</span></div></div>
+
+<h2>Reproducing this</h2>
+<div class="panel">
+<p>Everything here is generated from a seed, so the dataset is never committed.</p>
+<p><code>python -m gstpipe.generator.cli --businesses 30 --seed 2026</code><br>
+<code>python -m gstpipe.render.cli --dataset data/synthetic/seed-2026</code><br>
+<code>python -m gstpipe.inject.cli --dataset data/synthetic/seed-2026</code></p>
+<p>The review application needs a Python runtime and Tesseract, so it is run separately — see
+<code>DEPLOY.md</code>.</p>
+</div>
+
+<footer>Generated 2026-09-26 · all data is synthetic · HSN/SAC codes and rates are
+illustrative, not a tax reference.</footer>
+</main></body></html>

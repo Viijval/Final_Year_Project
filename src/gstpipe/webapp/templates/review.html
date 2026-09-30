@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Review queue</h1>
+    <p class="sub">
+      Worst first. {{ total }} {{ "document" if total == 1 else "documents" }}
+      {% if state %}in “{{ labels[state] }}”{% else %}not yet verified{% endif %}.
+    </p>
+  </div>
+  <form method="get" action="/review" style="min-width:220px">
+    {% if state %}<input type="hidden" name="state" value="{{ state }}">{% endif %}
+    <select name="business_id" onchange="this.form.submit()">
+      <option value="">All clients</option>
+      {% for b in businesses %}
+      <option value="{{ b.id }}" {{ 'selected' if business and b.id == business.id }}>{{ b.name }}</option>
+      {% endfor %}
+    </select>
+  </form>
+</div>
+
+<div class="filters">
+  <a class="chip {{ 'on' if not state }}" href="/review{{ '?business_id=' ~ business.id if business }}">
+    Everything unverified</a>
+  {% for key, label in labels.items() %}
+  <a class="chip {{ 'on' if state == key }}"
+     href="/review?state={{ key }}{{ '&business_id=' ~ business.id if business }}">
+    {{ label }} <b>{{ counts[key] }}</b></a>
+  {% endfor %}
+</div>
+
+<table>
+  <tr>
+    <th>Invoice</th><th>Supplier</th><th>Date</th><th class="num">Total</th>
+    <th>State</th><th>What is wrong</th><th class="num">Checks</th>
+  </tr>
+  {% for invoice, v in rows %}
+  <tr>
+    <td><a href="/invoices/{{ invoice.id }}">{{ invoice.invoice_number or invoice.id }}</a></td>
+    <td>{{ invoice.supplier_name|short(24) if invoice.supplier_name else "not read" }}</td>
+    <td class="muted">{{ invoice.invoice_date or "—" }}</td>
+    <td class="num">{{ ("₹" ~ invoice.invoice_total|inr) if invoice.invoice_total is not none else "—" }}</td>
+    <td><span class="tag {{ v.tone }}">{{ v.label }}</span></td>
+    <td class="muted">{{ v.failed[0].detail|short(52) if v.failed else "—" }}</td>
+    <td class="num">{{ (v.checks|length) - (v.failed|length) }}/{{ v.checks|length }}</td>
+  </tr>
+  {% else %}<tr><td colspan="7" class="empty">Nothing here.</td></tr>{% endfor %}
+</table>
+
+<style>
+.filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+.chip {
+  background: var(--card); border: 1px solid var(--line); border-radius: 20px;
+  padding: 6px 14px; font-size: 13px; text-decoration: none; color: var(--ink);
+}
+.chip:hover { border-color: var(--accent); }
+.chip.on { background: var(--navy); color: #fff; border-color: var(--navy); }
+.chip b { font-variant-numeric: tabular-nums; margin-left: 3px; }
+</style>
+{% endblock %}

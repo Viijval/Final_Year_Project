@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>{{ business.name if business else "Books you can sign off" }}</h1>
+    <p class="sub">
+      {% if business %}{{ business.sector|replace("_"," ")|title }} · GSTIN {{ business.gstin }}
+      {% else %}Every figure here was read off a document, and every one says whether it can be
+      trusted yet.{% endif %}
+    </p>
+  </div>
+  <a href="/upload"><button class="primary">Add an invoice</button></a>
+</div>
+
+<div class="states">
+  {% for key, s in verification.states.items() %}
+  <a class="state {{ s.tone }}" href="/review{{ '?state=' ~ key }}">
+    <span class="l">{{ s.label }}</span>
+    <span class="n">{{ s.count }}</span>
+    <span class="v">₹{{ s.value|inr }}</span>
+    <span class="meter"><span style="width: {{ s.share|round(1) }}%"></span></span>
+    <span class="foot">{{ s.share|round(0)|int }}% of documents</span>
+  </a>
+  {% endfor %}
+</div>
+
+<div class="claim">
+  <b>₹{{ verification.verified_value|inr }}</b> of purchases is backed by a document that was read
+  cleanly and passed every check. <b>₹{{ verification.unverified_value|inr }}</b> is not — and the
+  system says which invoices, and why, rather than averaging it away.
+</div>
+
+{% if verification.blockers %}
+<h2>What is holding verification back</h2>
+<table>
+  <tr><th>Check</th><th class="num">Invoices failing it</th><th>What it means</th></tr>
+  {% set explain = {
+    "Essentials read": "the number, date or total could not be read at all",
+    "Supplier identified": "no supplier name or GSTIN was recovered",
+    "Traceable to the document": "no value could be located on the page",
+    "Read confidently": "the scan was too poor to trust the reading",
+    "Adds up": "taxable plus tax does not match the stated total",
+    "Nothing flagged": "a consistency check failed on the document itself"} %}
+  {% for name, count in verification.blockers %}
+  <tr>
+    <td>{{ name }}</td>
+    <td class="num">{{ count }}</td>
+    <td class="muted">{{ explain.get(name, "") }}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% endif %}
+
+{% if not business and businesses %}
+<h2>Clients</h2>
+<table>
+  <tr><th>Business</th><th>Sector</th><th>State</th><th>GSTIN</th></tr>
+  {% for b in businesses %}
+  <tr><td><a href="/businesses/{{ b.id }}">{{ b.name }}</a></td>
+      <td>{{ b.sector|replace("_"," ")|title }}</td><td>{{ b.state_code }}</td>
+      <td class="muted">{{ b.gstin }}</td></tr>
+  {% endfor %}
+</table>
+{% endif %}
+
+<h2>Waiting on a person</h2>
+<table>
+  <tr><th>Invoice</th><th>Supplier</th><th class="num">Total</th><th>State</th><th>Why</th></tr>
+  {% for invoice, v in verification.queue %}
+  <tr>
+    <td><a href="/invoices/{{ invoice.id }}">{{ invoice.invoice_number or invoice.id }}</a></td>
+    <td>{{ invoice.supplier_name|short(26) if invoice.supplier_name else "not read" }}</td>
+    <td class="num">{{ ("₹" ~ invoice.invoice_total|inr) if invoice.invoice_total is not none else "—" }}</td>
+    <td><span class="tag {{ v.tone }}">{{ v.label }}</span></td>
+    <td class="muted">{{ v.failed[0].detail if v.failed else "" }}</td>
+  </tr>
+  {% else %}<tr><td colspan="5" class="empty">Everything is verified.</td></tr>{% endfor %}
+</table>
+<p class="sub" style="margin-top:12px"><a href="/review">Open the full queue →</a></p>
+
+<div class="grid2" style="margin-top:8px">
+  <div>
+    <h2>Spend by category</h2>
+    <div class="panel">
+      {% set top = stats.by_category[0][1] if stats.by_category else 1 %}
+      {% for name, amount in stats.by_category %}
+        <div class="row">
+          <div class="top"><span>{{ name }}</span><span class="muted">₹{{ amount|inr }}</span></div>
+          <div class="bar"><span style="width: {{ (amount / top * 100)|round(1) }}%"></span></div>
+        </div>
+      {% else %}<div class="empty">No invoices yet.</div>{% endfor %}
+    </div>
+  </div>
+  <div>
+    <h2>Largest suppliers</h2>
+    <div class="panel">
+      {% set top = stats.by_supplier[0][1] if stats.by_supplier else 1 %}
+      {% for name, amount in stats.by_supplier %}
+        <div class="row">
+          <div class="top"><span>{{ name|short(30) }}</span><span class="muted">₹{{ amount|inr }}</span></div>
+          <div class="bar"><span style="width: {{ (amount / top * 100)|round(1) }}%"></span></div>
+        </div>
+      {% else %}<div class="empty">No invoices yet.</div>{% endfor %}
+    </div>
+  </div>
+</div>
+
+<style>
+.states { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; }
+.state {
+  background: var(--card); border: 1px solid var(--line); border-left: 4px solid var(--grey);
+  border-radius: var(--radius); padding: 16px 18px; text-decoration: none; color: inherit;
+  box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 2px;
+  transition: transform .12s, box-shadow .12s;
+}
+.state:hover { transform: translateY(-2px); box-shadow: 0 8px 22px rgba(20,32,58,.12); }
+.state.good { border-left-color: var(--good); }
+.state.warn { border-left-color: #e0922f; }
+.state.bad { border-left-color: var(--bad); }
+.state .l { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--grey); }
+.state .n { font-size: 30px; font-weight: 700; color: var(--navy); line-height: 1.1; }
+.state.good .n { color: var(--good); } .state.bad .n { color: var(--bad); }
+.state .v { font-size: 14px; color: var(--ink); font-variant-numeric: tabular-nums; }
+.state .meter { height: 5px; background: #edf1f9; border-radius: 3px; margin-top: 8px; overflow: hidden; }
+.state .meter > span { display: block; height: 100%; background: currentColor; opacity: .55; }
+.state.good .meter > span { background: var(--good); }
+.state.warn .meter > span { background: #e0922f; }
+.state.bad .meter > span { background: var(--bad); }
+.state .foot { font-size: 12px; color: var(--grey); }
+.claim {
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 15px 18px; margin: 16px 0 6px; font-size: 14.5px; box-shadow: var(--shadow);
+}
+.claim b { color: var(--navy); font-variant-numeric: tabular-nums; }
+</style>
+{% endblock %}

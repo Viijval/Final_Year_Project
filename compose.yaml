@@ -1,0 +1,23 @@
+services:
+  app:
+    build:
+      context: .
+      args:
+        BUSINESSES: "3"
+    ports:
+      - "8000:8000"
+    volumes:
+      # Keep uploads and corrections across restarts.
+      - gstpipe-data:/app/data
+    restart: unless-stopped
+
+  # Publishes the app on a public https URL. Prints the address in its logs.
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    command: tunnel --no-autoupdate --url http://app:8000
+    depends_on:
+      - app
+    restart: unless-stopped
+
+volumes:
+  gstpipe-data:

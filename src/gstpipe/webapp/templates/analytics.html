@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>{{ business.name if business else "All clients" }}</h1>
+    <p class="sub">Everything below was read off documents. Figures as at {{ data.as_of.strftime("%d %b %Y") }}.</p>
+  </div>
+  <form method="get" action="/analytics" style="min-width:230px">
+    <select name="business_id" onchange="this.form.submit()">
+      <option value="">All clients</option>
+      {% for b in businesses %}
+      <option value="{{ b.id }}" {{ 'selected' if business and b.id == business.id }}>{{ b.name }}</option>
+      {% endfor %}
+    </select>
+  </form>
+</div>
+
+<div class="claim">
+  <b>₹{{ data.verified_value|inr }}</b> of the ₹{{ data.total_spend|inr }} below sits on documents
+  that were read cleanly and passed every check — <b>{{ data.verified_share|round(0)|int }}%</b> of
+  them. The rest is shown, but not yet signed off.
+  <a href="/review">See what is holding it up →</a>
+</div>
+
+<div class="cards">
+  <div class="card"><div class="l">Purchases</div><div class="n">₹{{ data.total_spend|inr }}</div>
+    <div class="foot">{{ data.invoice_count }} invoices · {{ data.verified_count }} verified</div></div>
+  <div class="card"><div class="l">GST input credit</div><div class="n">₹{{ data.input_credit|inr }}</div>
+    <div class="foot">claimable on these purchases</div></div>
+  <div class="card"><div class="l">Outstanding</div><div class="n warn">₹{{ data.outstanding_value|inr }}</div>
+    <div class="foot">{{ data.outstanding_count }} unpaid</div></div>
+  <div class="card"><div class="l">Overdue 30 days+</div>
+    <div class="n {{ 'bad' if data.overdue_value else 'good' }}">₹{{ data.overdue_value|inr }}</div>
+    <div class="foot">needs chasing</div></div>
+  <div class="card"><div class="l">Pays in</div>
+    <div class="n">{{ data.average_days_to_pay if data.average_days_to_pay is not none else "—" }}<span style="font-size:14px"> days</span></div>
+    <div class="foot">average, from invoice date</div></div>
+  <div class="card"><div class="l">Suppliers</div><div class="n">{{ data.supplier_count }}</div>
+    <div class="foot">{{ data.needs_review }} invoices need review</div></div>
+</div>
+
+<div class="grid2" style="margin-top:22px">
+  <div>
+    <h2>Monthly purchases</h2>
+    <div class="panel">
+      {% for label, value, height in data.spend.points() %}
+      <div class="row">
+        <div class="top"><span>{{ label }}</span><span class="muted">₹{{ value|inr }}</span></div>
+        <div class="bar"><span style="width: {{ height|round(1) }}%"></span></div>
+      </div>
+      {% else %}<div class="empty">Nothing dated yet.</div>{% endfor %}
+      <p class="muted" style="margin:12px 0 0">Average ₹{{ data.spend.average|inr }} a month.</p>
+    </div>
+  </div>
+  <div>
+    <h2>GST paid, by month</h2>
+    <div class="panel">
+      {% for label, value, height in data.tax.points() %}
+      <div class="row">
+        <div class="top"><span>{{ label }}</span><span class="muted">₹{{ value|inr }}</span></div>
+        <div class="bar warn"><span style="width: {{ height|round(1) }}%"></span></div>
+      </div>
+      {% else %}<div class="empty">No tax recovered from these documents.</div>{% endfor %}
+    </div>
+  </div>
+</div>
+
+<h2>What is still unpaid</h2>
+<div class="grid2">
+  <table>
+    <tr><th>Age</th><th class="num">Invoices</th><th class="num">Value</th></tr>
+    {% for row in data.ageing %}
+    <tr>
+      <td>{{ row.label }}{% if loop.index0 > 1 %} <span class="tag bad">chase</span>{% endif %}</td>
+      <td class="num">{{ row.count }}</td>
+      <td class="num">₹{{ row.value|inr }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  <div class="panel">
+    <strong style="font-size:14px">Spend by category</strong>
+    {% set top = data.categories[0][1] if data.categories else 1 %}
+    <div style="margin-top:12px">
+      {% for name, amount in data.categories[:7] %}
+      <div class="row">
+        <div class="top"><span>{{ name }}</span><span class="muted">₹{{ amount|inr }}</span></div>
+        <div class="bar"><span style="width: {{ (amount / top * 100)|round(1) }}%"></span></div>
+      </div>
+      {% else %}<div class="empty">Nothing categorised yet.</div>{% endfor %}
+    </div>
+  </div>
+</div>
+
+<h2>Biggest suppliers</h2>
+<table>
+  <tr><th>Supplier</th><th class="num">Invoices</th><th class="num">Value</th><th class="num">Share</th></tr>
+  {% for row in data.suppliers %}
+  <tr>
+    <td>{{ row.name|short(44) }}</td>
+    <td class="num">{{ row.invoices }}</td>
+    <td class="num">₹{{ row.value|inr }}</td>
+    <td class="num">{{ row.share|round(1) }}%</td>
+  </tr>
+  {% else %}<tr><td colspan="4" class="empty">No suppliers yet.</td></tr>{% endfor %}
+</table>
+
+<h2>How much of this could be read</h2>
+<div class="panel">
+  <p class="muted" style="margin-top:0">
+    These figures cover only the invoices the pipeline could read well enough to use. The rest are
+    waiting in the <a href="/review">review queue</a> — this is the honest denominator behind every
+    number above.
+  </p>
+  <table style="box-shadow:none">
+    <tr><th>Documents held</th><th class="num">{{ data.coverage.invoices }}</th><th></th></tr>
+    <tr><td>Usable for these figures</td><td class="num">{{ data.coverage.usable }}</td>
+        <td class="muted">date and total both read</td></tr>
+    <tr><td>Missing a date or a total</td><td class="num">{{ data.coverage.no_date_or_total }}</td>
+        <td class="muted">excluded until corrected</td></tr>
+    <tr><td>Date read implausibly</td><td class="num">{{ data.coverage.implausible_date }}</td>
+        <td class="muted">outside a sensible window, set aside</td></tr>
+    <tr><td>No tax figures recovered</td><td class="num">{{ data.coverage.no_tax }}</td>
+        <td class="muted">input credit is understated by these</td></tr>
+  </table>
+</div>
+{% endblock %}

@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>{{ invoice.invoice_number or invoice.id }}</h1>
+    <p class="sub">
+      {{ invoice.supplier_name or "supplier not read" }} ·
+      <a href="/businesses/{{ invoice.business_id }}">{{ invoice.business_id }}</a> ·
+      read with {{ (invoice.extraction_confidence * 100)|round(0)|int }}% confidence
+      <span class="tag {{ verification.tone }}">{{ verification.label }}</span>
+    </p>
+  </div>
+  {% if invoice.category %}<span class="pill">{{ invoice.category.split(" > ")[-1] }}</span>{% endif %}
+</div>
+
+<div class="verify {{ verification.tone }}">
+  <div class="verify-head">
+    <div>
+      <strong>{{ verification.label }}</strong>
+      {% if verification.state == "verified" %}
+        <span class="muted">every check passed{% if invoice.status == "approved" %}, and it was signed off{% endif %}.</span>
+      {% elif verification.state == "unreadable" %}
+        <span class="muted">the essentials could not be read, so this is not counted in any total.</span>
+      {% else %}
+        <span class="muted">{{ verification.failed|length }} of {{ verification.checks|length }} checks did not pass.</span>
+      {% endif %}
+    </div>
+    <span class="score">{{ (verification.score * 100)|round(0)|int }}%</span>
+  </div>
+  <ul class="checks">
+    {% for c in verification.checks %}
+    <li class="{{ 'ok' if c.ok else 'no' }}">
+      <span class="mark">{{ "✓" if c.ok else "!" }}</span>
+      <span><b>{{ c.name }}</b> — {{ c.detail }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+</div>
+
+<div class="split">
+  <div class="doc">
+    <div class="doc-head">
+      <span>Source document</span>
+      <label class="toggle"><input type="checkbox" id="show-boxes" checked> show where each value came from</label>
+    </div>
+    {% if invoice.document_path %}
+    <div class="doc-frame" id="doc-frame">
+      <img src="/{{ invoice.document_path }}" alt="the scanned invoice this was read from">
+      {% for field, box in regions.items() %}
+      <span class="hit" data-field="{{ field }}"
+            style="left:{{ box.left }}%;top:{{ box.top }}%;width:{{ box.width }}%;height:{{ box.height }}%"
+            title="{{ field|label }} — read as: {{ box.text }}"></span>
+      {% endfor %}
+    </div>
+    <p class="muted doc-note">
+      {% if regions %}{{ regions|length }} of the values below were traced back to the page.
+      Hover a field to find it.{% else %}No positions recorded for this document.{% endif %}
+    </p>
+    {% else %}<div class="empty">No document image.</div>{% endif %}
+  </div>
+
+  <div>
+    <form method="post" action="/invoices/{{ invoice.id }}/save">
+      <div class="panel">
+        <div class="field head">
+          <label>Field</label>
+          <span>Approved value — edit to correct</span>
+          <span class="was">What was read</span>
+        </div>
+        {% for name in field_order %}
+          {% set f = fields.get(name) %}
+          <div class="field {{ 'changed' if f and f.corrected }} {{ 'traced' if name in regions }}"
+               data-field="{{ name }}">
+            <label for="{{ name }}">{{ name|label }}</label>
+            <input id="{{ name }}" name="{{ name }}"
+                   value="{{ f.approved_value if f and f.approved_value else '' }}"
+                   placeholder="not read">
+            <span class="was">{{ (f.model_value if f else None) or "—" }}</span>
+          </div>
+        {% endfor %}
+      </div>
+      <div class="actions">
+        <button class="primary" type="submit">Save corrections</button>
+        <span class="muted">The original reading is kept either way.</span>
+      </div>
+    </form>
+
+    <form method="post" action="/invoices/{{ invoice.id }}/approve" class="approve">
+      <button class="ghost" type="submit">
+        {% if invoice.status == "approved" %}Already signed off{% else %}Sign off as verified{% endif %}
+      </button>
+      <span class="muted">Records who accepted these figures, against what was read.</span>
+    </form>
+
+    {% if payments %}
+    <h2>Settled by</h2>
+    <table>
+      <tr><th>Date</th><th class="num">Amount</th><th>Narration</th><th class="num">Confidence</th></tr>
+      {% for p in payments %}
+      <tr><td>{{ p.txn_date }}</td><td class="num">{{ p.amount|inr }}</td>
+          <td class="muted">{{ p.narration|short(46) }}</td>
+          <td class="num">{{ ((p.match_score or 0) * 100)|round(0)|int }}%</td></tr>
+      {% endfor %}
+    </table>
+    {% endif %}
+
+    <h2>History</h2>
+    <table>
+      <tr><th>When</th><th>What</th><th>From</th><th>To</th><th>By</th></tr>
+      {% for e in events %}
+      <tr><td class="muted">{{ e.at.strftime("%d %b %H:%M") }}</td>
+          <td>{{ (e.field or e.action)|replace("_"," ") }}</td>
+          <td class="muted">{{ e.old_value|short(22) }}</td>
+          <td>{{ e.new_value|short(22) }}</td>
+          <td class="muted">{{ e.actor }}</td></tr>
+      {% else %}
+      <tr><td colspan="5" class="empty">Nothing changed yet — these are exactly the values that were read.</td></tr>
+      {% endfor %}
+    </table>
+  </div>
+</div>
+
+<script>
+(function () {
+  const frame = document.getElementById("doc-frame");
+  if (!frame) return;
+  const boxes = new Map([...frame.querySelectorAll(".hit")].map(b => [b.dataset.field, b]));
+
+  const toggle = document.getElementById("show-boxes");
+  const sync = () => frame.classList.toggle("hide-boxes", !toggle.checked);
+  toggle.addEventListener("change", sync);
+  sync();
+
+  for (const row of document.querySelectorAll(".field[data-field]")) {
+    const box = boxes.get(row.dataset.field);
+    if (!box) continue;
+    const on = () => { box.classList.add("on"); row.classList.add("on"); };
+    const off = () => { box.classList.remove("on"); row.classList.remove("on"); };
+    row.addEventListener("mouseenter", on);
+    row.addEventListener("mouseleave", off);
+    row.querySelector("input").addEventListener("focus", on);
+    row.querySelector("input").addEventListener("blur", off);
+    box.addEventListener("mouseenter", on);
+    box.addEventListener("mouseleave", off);
+    box.addEventListener("click", () => row.querySelector("input").focus());
+  }
+})();
+</script>
+{% endblock %}
