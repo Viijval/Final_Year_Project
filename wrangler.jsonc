@@ -1,0 +1,17 @@
+{
+  "name": "ledgerline",
+  "main": "worker/index.ts",
+  "compatibility_date": "2025-10-01",
+  "containers": [
+    {
+      "class_name": "LedgerlineApp",
+      "image": "./Dockerfile",
+      "instance_type": "standard-1",
+      "max_instances": 1
+    }
+  ],
+  "durable_objects": {
+    "bindings": [{ "class_name": "LedgerlineApp", "name": "LEDGERLINE" }]
+  },
+  "migrations": [{ "new_sqlite_classes": ["LedgerlineApp"], "tag": "v1" }]
+}
