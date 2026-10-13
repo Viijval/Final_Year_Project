@@ -30,4 +30,4 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s \
   CMD curl -fsS http://localhost:${PORT}/api/health || exit 1
 
-CMD ["python", "-m", "gstpipe.webapp.cli", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["sh", "-c", "python -m gstpipe.webapp.cli --host 0.0.0.0 --port ${PORT} --dataset ${GSTPIPE_DATASET} --db ${GSTPIPE_DB} --model ${GSTPIPE_MODEL}"]

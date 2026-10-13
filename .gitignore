@@ -5,6 +5,6 @@ __pycache__/
 *.egg-info/
 build/
 dist/
-
+node_modules/
 # generated datasets are reproducible from a seed; never commit them
 data/
